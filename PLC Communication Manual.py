@@ -11,32 +11,56 @@ sr = serial.Serial(port="COM8",
 
 print(f"Connected to {sr.name}")
 
+def calculate_lrc(data: str) -> str:
+    """
+    Calculate the Modbus ASCII LRC checksum.
+
+    Parameters
+    ----------
+    data : str
+        Hexadecimal data without STX or CR/LF.
+
+    Returns
+    -------
+    str
+        Two-character hexadecimal LRC checksum.
+    """
+    checksum = 0
+    for i in range (0, len(data), 2):
+        checksum += int(data[i:i+2], 16)
+
+
+    # Calculate LRC (8-bit two's complement)
+    checksum = checksum & 0xFF         # Ensure 8-bit
+    checksum = (checksum ^ 0xFF) + 0X01
+    lrc_checksum = format(checksum, '02X')
+
+    return lrc_checksum
+
 def send_data(
-        STX = "3A",                  # Start word (STX): ‘: ’ (3AH) 
-        Device_Adress = "01",
-        Function_code = "06",
-        Register_Adress = str,
-        Data_Value = str,
-        END = "0D0A"                # Fix the END as END Hi = CR (0DH)(\r), END Lo = LF (0AH)(\n)
+        STX: str = "3A",                  # Start word (STX): ‘: ’ (3AH) 
+        device_address: str = "01",
+        function_code: str = "06",
+        register_address: str = "",
+        data_value: str = "",
+        END: str = "0D0A"                # Fix the END as END Hi = CR (0DH)(\r), END Lo = LF (0AH)(\n)
         ):
+    """
+    Build a Modbus ASCII frame, calculate the LRC checksum,
+    transmit the message over the serial port, and process
+    the PLC response.
+    """
     
-    
-    data = Device_Adress + Function_code + Register_Adress + Data_Value
+    data = device_address + function_code + register_address + data_value
     if len(data) % 2 != 0:
         raise ValueError("Hex string must have an even number of characters")
 
-    checksum  = 0
-    for i in range (0, len(data), 2):
-        checksum  += int(data[i:i+2], 16)
-
     # Calculate LRC (8-bit two's complement)
-    checksum  &= 0xFF         # Ensure 8-bit
-    checksum  = (checksum  ^ 0xFF) + 0X01
-    LRC_Checksum = format(checksum , '02X')
+    lrc_checksum = calculate_lrc(data)
 
-    s = Device_Adress + Function_code + Register_Adress + Data_Value + LRC_Checksum
+    message = device_address + function_code + register_address + data_value + lrc_checksum
     # Convert each character to its ASCII value, then to hex, and join them
-    result = ''.join(format(ord(c), '02x') for c in s)
+    result = ''.join(format(ord(c), '02x') for c in message)
     print(STX + result + END)
     message_bytes = bytes.fromhex(STX + result + END)
 
@@ -59,49 +83,48 @@ def send_data(
 
 
 
-def get_data(Input_String):
-    Input_String = Input_String.strip()
+def get_data(input_string):
+    """
+    Parse and validate a Modbus ASCII response frame.
+    Verify the LRC checksum and extract the returned fields.
+    """
+    input_string = input_string.strip()
 
-    Data_String = None
-    Rx_SingleBuf_Len = 16 - 2           # Number of data transmitter send (we have 2 header)
+    data_string = None
+    FRAME_LENGTH = 14               # Number of data transmitter send =16 - 2(we have 2 header)
 
-    Start_String = ":"
-    if Input_String[0] == Start_String:
-        Data_String = Input_String[len(Start_String): (len(Start_String) + Rx_SingleBuf_Len)]
+    start_string = ":"
+    if input_string[0] == start_string:
+        data_string = input_string[len(start_string): (len(start_string) + FRAME_LENGTH)]
     else:
-        Data_String = None
+        data_string = None
 
 
     # Input_String completely get. Now, we should check the checksum to be sure the data is correct
-    if Data_String is not None:
-        if len(Input_String[len(Start_String):]) >= Rx_SingleBuf_Len:
-            checksum  = 0
-            for i in range (0, len(Data_String)-2, 2):
-                checksum  += int(Data_String[i:i+2], 16)
+    if data_string is not None:
+        if len(input_string[len(start_string):]) >= FRAME_LENGTH:
 
-            # Calculate LRC (8-bit two's complement)
-            checksum  &= 0xFF         # Ensure 8-bit
-            checksum  = (checksum  ^ 0xFF) + 0X01
-            LRC_Checksum = format(checksum , '02X')
+            # Calculate LRC 
+            lrc_checksum = calculate_lrc(data_string[:-2])
 
-            # LRC_Checksum &= 0xFF         # Ensure 8-bit
-            if LRC_Checksum == Data_String[-2:]:
+            if lrc_checksum == data_string[-2:]:
                 print("Data is complete and correct")
-                device = Data_String[0:2]
-                function = Data_String[2:4]
-                memory_adress = Data_String[4:8]
-                value = Data_String[8:12]
+                device = data_string[0:2]
+                function = data_string[2:4]
+                memory_address = data_string[4:8]
+                value = data_string[8:12]
                 print(device)
                 print(function)
-                print(memory_adress)
+                print(memory_address)
                 print(value)
 
 
-        elif len(Input_String[len(Start_String):]) < Rx_SingleBuf_Len:
+        elif len(input_string[len(start_string):]) < FRAME_LENGTH:
             print("The data you send has problem.")
 
 
 if __name__ == "__main__":
-    send_data(Register_Adress='0800', Data_Value='0000')    
-    # send_date(Register_Adress='17D0', Data_Value='0005')    
-    send_data(Register_Adress='0800', Data_Value=b'1')    
+    send_data(register_address='0800', data_value='0000')    
+    # send_date(register_address='17D0', data_value='0005')    
+
+    sr.close()
