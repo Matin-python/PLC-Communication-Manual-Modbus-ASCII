@@ -24,7 +24,7 @@ A Python project that communicates with a PLC using the **Modbus ASCII protocol*
 ```text
 PLC-Communication-Manual-Modbus-ASCII/
 │
-├── main.py
+├── PLC Communication Manual.py
 ├── requirements.txt
 ├── README.md
 ├── LICENSE
@@ -71,7 +71,7 @@ Modify these settings according to your PLC configuration.
 Run the program:
 
 ```bash
-python main.py
+python PLC Communication Manual.py
 ```
 
 Example:
