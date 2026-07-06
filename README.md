@@ -27,9 +27,7 @@ PLC-Communication-Manual-Modbus-ASCII/
 ├── PLC Communication Manual.py
 ├── requirements.txt
 ├── README.md
-├── LICENSE
-└── images/
-    └── example_output.png
+└── LICENSE 
 ```
 
 ## Requirements
